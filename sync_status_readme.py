@@ -70,13 +70,27 @@ def get_date_range():
 
 
 def get_user_timezone(file_content):
+    """
+    Extracts the timezone from the file content, supporting IANA timezone names
+    (e.g., 'Asia/Shanghai') and UTC offsets (e.g., 'UTC+8').
+    If no valid timezone is found, defaults to DEFAULT_TIMEZONE.
+    """
     yaml_match = re.search(r'---\s*\ntimezone:\s*(\S+)\s*\n---', file_content)
     if yaml_match:
+        timezone_str = yaml_match.group(1)
         try:
-            return pytz.timezone(yaml_match.group(1))
+            # Attempt to interpret as a named timezone (e.g., "Asia/Shanghai")
+            return pytz.timezone(timezone_str)
         except pytz.exceptions.UnknownTimeZoneError:
-            logging.warning(
-                f"Unknown timezone: {yaml_match.group(1)}. Using default {DEFAULT_TIMEZONE}.")
+            # If named timezone fails, attempt to interpret as a UTC offset
+            try:
+                # Convert UTC offset string to a fixed offset timezone
+                offset = int(timezone_str[3:])  # Extract the offset value
+                return pytz.FixedOffset(offset * 60)  # Offset in minutes
+            except ValueError:
+                logging.warning(
+                    f"Invalid timezone format: {timezone_str}. Using default {DEFAULT_TIMEZONE}.")
+                return pytz.timezone(DEFAULT_TIMEZONE)
     return pytz.timezone(DEFAULT_TIMEZONE)
 
 
